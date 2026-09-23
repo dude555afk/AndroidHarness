@@ -45,6 +45,28 @@ class KeyStoreManager(context: Context) {
         prefs.edit().remove(providerId).apply()
     }
 
+    /** Forge plugin secrets live in the same Android-Keystore-backed encrypted prefs. */
+    fun putForgeSecret(pluginId: String, name: String, value: String) {
+        prefs.edit().putString(forgeSecretSlot(pluginId, name), value).apply()
+    }
+
+    fun getForgeSecret(pluginId: String, name: String): String? =
+        prefs.getString(forgeSecretSlot(pluginId, name), null)?.takeIf { it.isNotBlank() }
+
+    fun removeForgeSecret(pluginId: String, name: String) {
+        prefs.edit().remove(forgeSecretSlot(pluginId, name)).apply()
+    }
+
+    fun removeForgePluginSecrets(pluginId: String) {
+        val prefix = "forge_secret_${pluginId}_"
+        val editor = prefs.edit()
+        prefs.all.keys.filter { it.startsWith(prefix) }.forEach(editor::remove)
+        editor.apply()
+    }
+
+    private fun forgeSecretSlot(pluginId: String, name: String) =
+        "forge_secret_${pluginId}_${name}"
+
     /** GitHub access token used for push/PR/private-repo access from the toolchain. */
     fun putGitHubToken(token: String) {
         prefs.edit().putString(KEY_GITHUB, token.trim()).apply()
