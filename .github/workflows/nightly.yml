@@ -11,6 +11,7 @@ on:
   push:
     branches:
       - main
+      - polish-stability
     paths:
       - "app/**"
       - ".github/workflows/nightly.yml"
