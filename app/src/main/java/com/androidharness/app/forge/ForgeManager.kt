@@ -41,14 +41,24 @@ class ForgeManager(
     private val keys: KeyStoreManager,
     private val http: OkHttpClient,
 ) {
-    private val root = File(context.filesDir, "forge").apply { mkdirs() }
+    private val root = File(context.filesDir, "forge")
     private val json = Json { ignoreUnknownKeys = true; prettyPrint = true }
 
-    private val _plugins = MutableStateFlow(loadPlugins())
+    private val _plugins = MutableStateFlow<List<ForgePluginManifest>>(emptyList())
     val plugins: StateFlow<List<ForgePluginManifest>> = _plugins
 
     /** Agent/UI bridge: forge_open_ui asks AppNav to show this plugin. */
     val openRequests = MutableSharedFlow<String>(extraBufferCapacity = 4)
+
+    init {
+        // Forge must never be able to brick application startup. A malformed
+        // plugin file, storage quirk, serializer/runtime issue, or failed mkdir
+        // leaves Forge empty while the rest of AndroidHarness continues.
+        runCatching {
+            if (!root.exists()) root.mkdirs()
+            _plugins.value = loadPlugins()
+        }
+    }
 
     fun managementTools(): List<Tool> = listOf(
         ForgeListTool(this),
@@ -195,7 +205,8 @@ class ForgeManager(
         _plugins.value = loadPlugins()
     }
 
-    private fun loadPlugins(): List<ForgePluginManifest> = root.listFiles().orEmpty()
+    private fun loadPlugins(): List<ForgePluginManifest> =
+        if (!root.exists() || !root.isDirectory) emptyList() else root.listFiles().orEmpty()
         .filter { it.isFile && it.extension == "json" }
         .mapNotNull { file ->
             runCatching { json.decodeFromString<ForgePluginManifest>(file.readText()) }.getOrNull()
