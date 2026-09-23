@@ -60,7 +60,7 @@ class KeyStoreManager(context: Context) {
     fun removeForgePluginSecrets(pluginId: String) {
         val prefix = "forge_secret_${pluginId}_"
         val editor = prefs.edit()
-        prefs.all.keys.filter { it.startsWith(prefix) }.forEach(editor::remove)
+        prefs.all.keys.filter { it.startsWith(prefix) }.forEach { editor.remove(it) }
         editor.apply()
     }
 
