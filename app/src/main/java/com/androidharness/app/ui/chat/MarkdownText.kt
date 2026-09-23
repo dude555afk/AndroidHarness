@@ -349,7 +349,7 @@ private fun MarkdownBlocks(
                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
                 modifier = Modifier.padding(vertical = 4.dp),
             )
-            is Block.Bullets -> ListBlock(block.items, plain = plain)
+            is Block.Bullets -> ListBlock(block.items, plain = plain, onOpenUrl = onOpenUrl)
             is Block.Table -> TableBlock(block, onOpenUrl = onOpenUrl)
             is Block.Paragraph -> if (plain) {
                 Text(block.text, style = MaterialTheme.typography.bodyLarge)
@@ -362,7 +362,7 @@ private fun MarkdownBlocks(
 }
 
 @Composable
-private fun ListBlock(items: List<ListItem>, plain: Boolean) {
+private fun ListBlock(\n    items: List<ListItem>,\n    plain: Boolean,\n    onOpenUrl: ((String) -> Unit)? = null,\n) {
     Column(Modifier.fillMaxWidth()) {
         items.forEach { item ->
             Row {
@@ -376,7 +376,7 @@ private fun ListBlock(items: List<ListItem>, plain: Boolean) {
                     if (plain) {
                         Text(item.content, style = MaterialTheme.typography.bodyLarge)
                     } else {
-                        Text(styledText(item.content), style = MaterialTheme.typography.bodyLarge)
+                        LinkedText(styledText(item.content), MaterialTheme.typography.bodyLarge, onOpenUrl = onOpenUrl)
                     }
                     item.nested.forEach { nested ->
                         Row {
@@ -742,18 +742,32 @@ private fun styledText(text: String): AnnotatedString {
     val linkColor = MaterialTheme.colorScheme.primary
     return remember(text, codeColor, codeBackground, linkColor) {
         val links = linkRegex.findAll(text).associateBy { it.range.first }
+        val bareLinks = bareUrlRegex.findAll(text)
+            .filter { match -> links.values.none { explicit -> match.range.first in explicit.range } }
+            .associateBy { it.range.first }
         buildAnnotatedString {
             var i = 0
             while (i < text.length) {
                 val link = links[i]
                 when {
                     link != null -> {
-                        pushStringAnnotation(tag = "url", annotation = link.groupValues[2])
+                        pushStringAnnotation(tag = "url", annotation = normalizeLinkTarget(link.groupValues[2]))
                         pushStyle(SpanStyle(color = linkColor, textDecoration = TextDecoration.Underline))
                         append(link.groupValues[1])
                         pop()
                         pop()
                         i = link.range.last + 1
+                    }
+
+                    bareLink != null -> {
+                        val raw = bareLink.value
+                        val shown = trimBareUrl(raw)
+                        pushStringAnnotation(tag = "url", annotation = normalizeLinkTarget(shown))
+                        pushStyle(SpanStyle(color = linkColor, textDecoration = TextDecoration.Underline))
+                        append(shown)
+                        pop()
+                        pop()
+                        i += shown.length
                     }
 
                     text.startsWith("**", i) -> {
