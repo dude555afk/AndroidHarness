@@ -276,7 +276,7 @@ class ForgeManager(
 
     companion object {
         private val ID_REGEX = Regex("[a-z][a-z0-9_-]{0,48}")
-        private val TEMPLATE_REGEX = Regex("\\\{\\\{([A-Za-z0-9_]+)}}")
+        private val TEMPLATE_REGEX = Regex("""\\{\\{([A-Za-z0-9_]+)}}""")
         private val ALLOWED_PERMISSIONS = setOf("network", "secrets", "ui")
         private val LOCAL_HOSTS = setOf("localhost", "127.0.0.1", "::1")
         private val BODYLESS_METHODS = setOf("GET", "HEAD")
