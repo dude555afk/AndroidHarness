@@ -5,6 +5,12 @@ name: Debug build
 # workflow artifact (Actions tab, kept 30 days).
 
 on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "app/**"
+      - ".github/workflows/nightly.yml"
   schedule:
     - cron: "0 2 * * *" # 02:00 UTC nightly
   workflow_dispatch: {}
