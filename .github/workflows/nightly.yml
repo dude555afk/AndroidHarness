@@ -1,5 +1,7 @@
 name: Debug build
 
+# Branch build trigger v2
+
 # Builds the debug APK on every push to main (app/ changes), nightly at
 # 02:00 UTC, or on demand from the Actions tab. The APK is uploaded as a
 # workflow artifact (Actions tab, kept 30 days).
@@ -17,6 +19,7 @@ on:
   push:
     branches:
       - main
+      - polish-stability
     paths:
       - "app/**"
       - ".github/workflows/nightly.yml"
