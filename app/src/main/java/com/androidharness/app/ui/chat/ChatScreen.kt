@@ -982,20 +982,30 @@ fun ChatScreen(
                                 .padding(horizontal = 14.dp, vertical = 16.dp),
                         )
                     } else {
+                        // Keep the LazyLayout itself structurally permanent. The crash trace
+                        // dies inside SubcomposeLayout while LazyColumn removes/reuses children,
+                        // so the entire volatile chat tree lives in one lazy item. Message-level
+                        // changes now happen in normal composition, outside LazyLayout's slot table.
                         LazyColumn(
                             state = listState,
                             modifier = Modifier.fillMaxWidth(),
                             contentPadding = PaddingValues(horizontal = 14.dp, vertical = 16.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
+                            item(key = "chat-root") {
+                                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             var nextItemIndex = 0
+                            @Composable
                             fun indexedItem(
                                 key: Any? = null,
-                                content: @Composable LazyItemScope.() -> Unit,
+                                content: @Composable () -> Unit,
                             ) {
-                                if (key == "search-target") searchItemIndex.value = nextItemIndex
+                                // The outer LazyColumn deliberately owns exactly one item.
+                                // Preserve local identity with Compose keys instead of lazy slots.
+                                if (key == "search-target") searchItemIndex.value = 0
                                 nextItemIndex++
-                                item(key = key, content = content)
+                                androidx.compose.runtime.key(key ?: "chat-node-$nextItemIndex") {
+                                    content()
+                                }
                             }
                             indexedItem(key = "empty-state-slot") {
                                 if (state.messages.isEmpty() && state.streamingText == null) {
@@ -1334,8 +1344,10 @@ fun ChatScreen(
                             }
                         }
                     }
-                }
-            }
+                                }
+                            }
+                        }
+                    }
 
                 // Floating jump-to-latest button while detached from the
                 // bottom; pulses when new content lands while away.
