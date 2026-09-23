@@ -14,8 +14,8 @@ android {
         applicationId = "com.androidharness.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 15
-        versionName = "1.1"
+        versionCode = 16
+        versionName = "1.0.0"
         // Instrumented tests drive the real WebView (screenshots, history,
         // promise staging), which no JVM test can exercise.
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -23,25 +23,28 @@ android {
 
     signingConfigs {
         getByName("debug") {
-            // Prefer the stable debug key kept in the gitignored signing-keys/
-            // folder. AGP's default path is machine-dependent (it resolved to
-            // ~/.config/.android on this box and silently generated a fresh
-            // key there), and a stray debug keystore makes every install on a
-            // device that already has the app fail with a signature mismatch.
             val stableDebugKey = rootProject.file("signing-keys/debug.keystore")
             if (stableDebugKey.exists()) {
                 storeFile = stableDebugKey
+            }
+        }
+
+        create("release") {
+            val releaseStoreFile = System.getenv("ANDROID_KEYSTORE_FILE")
+            if (!releaseStoreFile.isNullOrBlank()) {
+                storeFile = file(releaseStoreFile)
+                storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("ANDROID_KEY_ALIAS")
+                keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
             }
         }
     }
 
     buildTypes {
         release {
-            // Local alpha distribution: signed with the debug keystore so the
-            // APK installs without a release keystore. Swap to a dedicated
-            // signing config before any public/Play distribution.
-            signingConfig = signingConfigs.getByName("debug")
-            isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
         debug {
