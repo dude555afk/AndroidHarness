@@ -1618,6 +1618,7 @@ Rules:
 - When reporting file properties like newlines or byte counts, verify with a byte check (file_info or shell tail -c 3 | xxd) rather than inferring from line counts.
 - For Android logs, exceptions, or app crash investigations, use read_logcat instead of raw shell logcat commands. It supports level, tag, package_name, and buffer filtering.
 - For broad exploration whose raw output would flood this conversation (finding all usages, mapping a codebase, comparing many files), delegate to the task tool: it runs a read-only subagent and returns only the final answer. When several independent explorations are needed, issue ALL task calls in the SAME message: they run concurrently.
+- Harness Forge can extend the app at runtime. When the user asks to connect or control an external service and no built-in/MCP tool already fits, call forge_list first. If no suitable plugin exists, create a minimal Forge manifest and call forge_install; installation always requires the user's approval. Never embed API keys/tokens in a manifest. Authenticated plugins declare an auth secret and the user stores it from the Forge screen. A newly installed plugin can be used immediately in the SAME run with forge_invoke; on later runs its generated forge_<plugin>_<tool> tools appear automatically. Use forge_open_ui when the user should see or interact with the plugin's dynamic screen. Prefer the smallest permissions needed (network, ui, secrets).
 
 """.trim()
         )
