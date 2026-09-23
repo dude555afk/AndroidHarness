@@ -424,11 +424,12 @@ private fun ForgeNodeRenderer(
         "input" -> {
             val key = node.string("key") ?: return
             if (key !in state) state[key] = node.string("value").orEmpty()
+            val hint = node.string("placeholder")
             OutlinedTextField(
                 value = state[key].orEmpty(),
                 onValueChange = { state[key] = it },
                 label = { Text(node.string("label") ?: key) },
-                placeholder = node.string("placeholder")?.let { hint -> { Text(hint) } },
+                placeholder = if (hint != null) ({ Text(hint) }) else null,
                 singleLine = node.bool("multiline") != true,
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -487,7 +488,7 @@ private fun JsonObject.bool(key: String): Boolean? =
 private fun JsonObject.children(): List<JsonObject> =
     (this["children"] as? JsonArray).orEmpty().mapNotNull { it as? JsonObject }
 
-private val STATE_TEMPLATE = Regex("\\\{\\\{state\\.([A-Za-z0-9_]+)}}")
+private val STATE_TEMPLATE = Regex("""\\{\\{state\\.([A-Za-z0-9_]+)}}""")
 
 private fun resolveState(
     element: JsonElement,
