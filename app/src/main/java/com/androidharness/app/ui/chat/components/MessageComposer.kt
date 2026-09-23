@@ -192,7 +192,7 @@ internal fun MessageComposer(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(start = 12.dp, end = 12.dp, top = 6.dp, bottom = 10.dp),
+            .padding(start = 10.dp, end = 10.dp, top = 5.dp, bottom = 8.dp),
         verticalAlignment = Alignment.Bottom,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -255,18 +255,18 @@ internal fun MessageComposer(
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .clip(RoundedCornerShape(26.dp))
-                    .background(Color.Transparent),
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(MaterialTheme.colorScheme.surfaceContainerLow),
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 2.dp),
+                        .padding(horizontal = 15.dp, vertical = 1.dp),
                 ) {
                     if (!attachedSkill.isNullOrBlank()) {
                         Surface(
-                            shape = RoundedCornerShape(14.dp),
+                            shape = RoundedCornerShape(12.dp),
                             color = MaterialTheme.colorScheme.secondaryContainer,
                             contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                             onClick = onClearSkill,
@@ -314,7 +314,7 @@ internal fun MessageComposer(
                             onValueChange = onValueChange,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .heightIn(min = 44.dp, max = 148.dp)
+                                .heightIn(min = 42.dp, max = 144.dp)
                                 .verticalScroll(rememberScrollState())
                                 .onFocusChanged { focused = it.isFocused }
                                 .padding(vertical = 12.dp),
@@ -339,7 +339,7 @@ internal fun MessageComposer(
                             } else {
                                 MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
                             },
-                            shape = RoundedCornerShape(26.dp),
+                            shape = RoundedCornerShape(24.dp),
                         ),
                 )
             }

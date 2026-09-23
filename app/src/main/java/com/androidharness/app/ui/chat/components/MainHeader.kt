@@ -186,14 +186,14 @@ internal fun MainHeader(
             Box(modifier = Modifier.padding(end = 2.dp)) {
                 Surface(
                     onClick = { thinkingMenu = true },
-                    shape = RoundedCornerShape(8.dp),
+                    shape = RoundedCornerShape(10.dp),
                     color = if (thinkingOn) scheme.secondaryContainer else scheme.surfaceContainerHigh,
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.padding(
                             horizontal = if (thinkingOn) 7.dp else 6.dp,
-                            vertical = 4.dp,
+                            vertical = 5.dp,
                         ),
                     ) {
                         Icon(
