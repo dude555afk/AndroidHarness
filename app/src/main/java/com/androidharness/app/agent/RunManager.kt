@@ -55,6 +55,8 @@ class RunManager(
     private val todoStore: TodoStore,
     /** MCP servers; tools are attached per run. Null in tests without MCP. */
     private val mcp: com.androidharness.app.tools.mcp.McpManager? = null,
+    /** Runtime Forge plugins; tools are attached per run just like MCP tools. */
+    private val forge: com.androidharness.app.forge.ForgeManager? = null,
     private val repoMap: com.androidharness.app.repomap.RepoMapCache? = null,
 ) {
 
@@ -335,9 +337,13 @@ class RunManager(
                     mode = mode,
                     userInjections = channel,
                     maxIterations = maxIterations,
-                    // Connected MCP servers ride into this run; a failing
-                    // server must never block the run itself.
-                    extraTools = runCatching { mcp?.activeTools(runWorkspace) }.getOrNull().orEmpty(),
+                    // Connected MCP servers and runtime Forge plugins ride into
+                    // this run. Forge plugins installed mid-run are still usable
+                    // immediately through forge_invoke; named tools appear next run.
+                    extraTools = buildList {
+                        addAll(runCatching { mcp?.activeTools(runWorkspace) }.getOrNull().orEmpty())
+                        addAll(runCatching { forge?.activeTools() }.getOrNull().orEmpty())
+                    },
                     resolveSubagentModel = modelResolver::resolve,
                     repoMapEnabled = repoMapOn,
                     pinnedInstructions = record.pins,
