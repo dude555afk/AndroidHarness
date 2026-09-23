@@ -994,6 +994,7 @@ fun ChatScreen(
                             item(key = "chat-root") {
                                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             var nextItemIndex = 0
+                            @Composable
                             fun indexedItem(
                                 key: Any? = null,
                                 content: @Composable () -> Unit,
