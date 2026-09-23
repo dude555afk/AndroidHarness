@@ -34,6 +34,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -423,10 +424,13 @@ private fun ForgeNodeRenderer(
 
         "input" -> {
             val key = node.string("key") ?: return
-            if (key !in state) state[key] = node.string("value").orEmpty()
+            val defaultValue = node.string("value").orEmpty()
+            LaunchedEffect(key) {
+                if (key !in state) state[key] = defaultValue
+            }
             val hint = node.string("placeholder")
             OutlinedTextField(
-                value = state[key].orEmpty(),
+                value = state[key] ?: defaultValue,
                 onValueChange = { state[key] = it },
                 label = { Text(node.string("label") ?: key) },
                 placeholder = if (hint != null) ({ Text(hint) }) else null,
@@ -437,14 +441,17 @@ private fun ForgeNodeRenderer(
 
         "switch" -> {
             val key = node.string("key") ?: return
-            if (key !in state) state[key] = (node.bool("value") ?: false).toString()
+            val defaultValue = (node.bool("value") ?: false).toString()
+            LaunchedEffect(key) {
+                if (key !in state) state[key] = defaultValue
+            }
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text(node.string("label") ?: key, modifier = Modifier.weight(1f))
                 Switch(
-                    checked = state[key].toBoolean(),
+                    checked = (state[key] ?: defaultValue).toBoolean(),
                     onCheckedChange = { state[key] = it.toString() },
                 )
             }
