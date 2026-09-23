@@ -864,12 +864,25 @@ class AgentEngine(
         }
         val grantKey = com.androidharness.app.tools.ShellPolicy.grantKey(call.name, command)
         val isPkgInstall = call.name == "pkg_install"
+        val isForgeMutation = call.name == "forge_install" || call.name == "forge_remove"
         val approved = when {
             isPkgInstall -> {
                 // Mandatory confirmation: even in FULL_ACCESS or FULL_AUTO mode,
                 // package installation ALWAYS requires explicit user confirmation (Decline or Allow).
                 val preview = if (workspace is com.androidharness.app.workspace.SshFs) "Install requested packages on the SSH host for ${workspace.root}." else computePkgInstallPreview(call)
                 val request = ApprovalRequest(call, tool.description, preview, grantKey)
+                emitEvent(AgentEvent.ApprovalNeeded(request))
+                request.response.await()
+            }
+            isForgeMutation -> {
+                // Runtime extensions can add network tools/UI and persist beyond
+                // this chat, so install/remove always needs a human approval.
+                val request = ApprovalRequest(
+                    call,
+                    tool.description,
+                    "Forge wants to ${if (call.name == "forge_install") "install or update a runtime plugin" else "remove a runtime plugin"}. Review the requested extension before allowing it.",
+                    grantKey,
+                )
                 emitEvent(AgentEvent.ApprovalNeeded(request))
                 request.response.await()
             }
