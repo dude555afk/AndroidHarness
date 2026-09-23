@@ -74,8 +74,9 @@ internal fun UserBubble(
         Surface(
             color = scheme.surfaceContainerHigh,
             contentColor = scheme.onSurface,
-            shape = RoundedCornerShape(18.dp, 18.dp, 4.dp, 18.dp),
-            modifier = Modifier.fillMaxWidth(0.88f).widthIn(max = 560.dp).let { m ->
+            shape = RoundedCornerShape(22.dp, 22.dp, 7.dp, 22.dp),
+            border = BorderStroke(1.dp, scheme.outlineVariant.copy(alpha = 0.30f)),
+            modifier = Modifier.fillMaxWidth(0.84f).widthIn(max = 560.dp).let { m ->
                 if (onLongPress != null) {
                     m.combinedClickable(onClick = {}, onLongClick = onLongPress)
                 } else m
@@ -83,7 +84,7 @@ internal fun UserBubble(
         ) {
             Column(
                 verticalArrangement = Arrangement.spacedBy(6.dp),
-                modifier = Modifier.padding(horizontal = 15.dp, vertical = 10.dp),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 11.dp),
             ) {
                 images.forEach { img ->
                     AttachmentChip(
@@ -115,9 +116,9 @@ private fun AttachmentChip(
 ) {
     val scheme = MaterialTheme.colorScheme
     Surface(
-        shape = RoundedCornerShape(10.dp),
-        color = scheme.surfaceContainer,
-        border = BorderStroke(1.dp, scheme.outlineVariant.copy(alpha = 0.45f)),
+        shape = RoundedCornerShape(12.dp),
+        color = scheme.surfaceContainerLow,
+        border = BorderStroke(1.dp, scheme.outlineVariant.copy(alpha = 0.30f)),
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
