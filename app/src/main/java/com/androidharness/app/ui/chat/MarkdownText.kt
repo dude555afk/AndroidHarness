@@ -362,7 +362,11 @@ private fun MarkdownBlocks(
 }
 
 @Composable
-private fun ListBlock(\n    items: List<ListItem>,\n    plain: Boolean,\n    onOpenUrl: ((String) -> Unit)? = null,\n) {
+private fun ListBlock(
+    items: List<ListItem>,
+    plain: Boolean,
+    onOpenUrl: ((String) -> Unit)? = null,
+) {
     Column(Modifier.fillMaxWidth()) {
         items.forEach { item ->
             Row {
@@ -733,6 +737,15 @@ private fun CodeBlock(code: String, language: String) {
 // Inline styling
 
 private val linkRegex = Regex("\\[([^\\]]+)]\\(([^)\\s]+)\\)")
+private val bareUrlRegex = Regex("""(?i)(?:https?://|www\\.)[^\\s<>()]+|(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,}(?:/[^\\s<>()]*)?""")
+
+private fun trimBareUrl(value: String): String =
+    value.trimEnd('.', ',', ';', ':', '!', '?', ')', ']', '}')
+
+private fun normalizeLinkTarget(value: String): String = when {
+    value.startsWith("http://", ignoreCase = true) || value.startsWith("https://", ignoreCase = true) -> value
+    else -> "https://$value"
+}
 
 /** Inline bold, italic, strikethrough, code, and links. */
 @Composable
@@ -749,6 +762,7 @@ private fun styledText(text: String): AnnotatedString {
             var i = 0
             while (i < text.length) {
                 val link = links[i]
+                val bareLink = bareLinks[i]
                 when {
                     link != null -> {
                         pushStringAnnotation(tag = "url", annotation = normalizeLinkTarget(link.groupValues[2]))
