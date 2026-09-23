@@ -1012,7 +1012,10 @@ fun ChatScreen(
                         // call id on the assistant row, they render on the
                         // subagent's own page, never in the main list.
                         if (message.role == Role.ASSISTANT && message.toolCallId != null) continue
-                        val messageKey = message.id ?: "${message.role.name}-${message.createdAt}-$messageIndex"
+                        val messageKey = message.id
+                            ?: message.toolCallId?.let { "tool-$it" }
+                            ?: message.turnId?.let { "$it-${message.role.name}-${message.createdAt}" }
+                            ?: "${message.role.name}-${message.createdAt}"
                         if (searchMessageId != null && message.id == searchMessageId) {
                             indexedItem(key = "search-target") {
                                 Surface(
@@ -1032,7 +1035,7 @@ fun ChatScreen(
                         }
                         when (message.role) {
                             Role.USER -> indexedItem(key = "message-$messageKey-user") {
-                                Box(Modifier.animateItem(fadeInSpec = fastEffectsSpec(), placementSpec = null, fadeOutSpec = null)) {
+                                Box {
                                     Column(horizontalAlignment = Alignment.End) {
                                         val (visibleText, fileChips) = FileAttachments.splitForDisplay(
                                             slashSkillInstruction(message.text)
@@ -1097,12 +1100,12 @@ fun ChatScreen(
                                 }
                                 if (!hasFinishedActivity && message.thinking.isNotBlank()) {
                                     indexedItem(key = "message-$messageKey-thinking") {
-                                        Box(Modifier.animateItem(fadeInSpec = fastEffectsSpec(), placementSpec = null, fadeOutSpec = null)) { ThinkingBlock(message.thinking, durationMs = message.thinkingMs) }
+                                        Box { ThinkingBlock(message.thinking, durationMs = message.thinkingMs) }
                                     }
                                 }
                                 if (message.text.isNotBlank()) {
                                     indexedItem(key = "message-$messageKey-text") {
-                                        Box(Modifier.animateItem(fadeInSpec = fastEffectsSpec(), placementSpec = null, fadeOutSpec = null)) {
+                                        Box {
                                             Column {
                                                 val used = skillUsedByMessage[message.id].orEmpty()
                                                 if (used.isNotEmpty()) {
@@ -1181,7 +1184,7 @@ fun ChatScreen(
                                     val otherCalls = message.toolCalls.filter { it.name != "task" }
                                     if (taskCalls.size >= 2) {
                                         indexedItem(key = "message-$messageKey-subagents") {
-                                            Box(Modifier.animateItem(fadeInSpec = fastEffectsSpec(), placementSpec = null, fadeOutSpec = null)) {
+                                            Box {
                                                 SubagentPagerCard(
                                                     calls = taskCalls,
                                                     results = toolResults,
@@ -1194,7 +1197,7 @@ fun ChatScreen(
                                     } else if (taskCalls.size == 1) {
                                         val call = taskCalls[0]
                                         indexedItem(key = call.id) {
-                                            Box(Modifier.animateItem(fadeInSpec = fastEffectsSpec(), placementSpec = null, fadeOutSpec = null)) {
+                                            Box {
                                                 SubagentCard(
                                                     call = call,
                                                     steps = state.subagentSteps[call.id].orEmpty(),
@@ -1208,7 +1211,7 @@ fun ChatScreen(
                                     }
                                     if (otherCalls.size >= 3) {
                                         indexedItem(key = "message-$messageKey-tools") {
-                                            Box(Modifier.animateItem(fadeInSpec = fastEffectsSpec(), placementSpec = null, fadeOutSpec = null)) {
+                                            Box {
                                                 ToolGroupCard(
                                                     calls = otherCalls,
                                                     results = toolResults,
@@ -1221,7 +1224,7 @@ fun ChatScreen(
                                     } else {
                                         for (call in otherCalls) {
                                             indexedItem(key = call.id) {
-                                                Box(Modifier.animateItem(fadeInSpec = fastEffectsSpec(), placementSpec = null, fadeOutSpec = null)) {
+                                                Box {
                                                     ToolCallCard(
                                                         call = call,
                                                         result = toolResults[call.id],
@@ -1238,7 +1241,7 @@ fun ChatScreen(
                             Role.SYSTEM -> {
                                 if (message.text.startsWith(com.androidharness.app.agent.ContextHygiene.COMPACTION_NOTICE_PREFIX)) {
                                     indexedItem(key = "message-$messageKey-system") {
-                                        Box(Modifier.animateItem(fadeInSpec = fastEffectsSpec(), placementSpec = null, fadeOutSpec = null)) {
+                                        Box {
                                             CompactionNoticeLine()
                                         }
                                     }
@@ -1275,7 +1278,7 @@ fun ChatScreen(
 
                     state.pendingApproval?.let { approval ->
                         indexedItem(key = "approval") {
-                            Box(Modifier.animateItem(fadeInSpec = fastEffectsSpec(), placementSpec = null, fadeOutSpec = null)) {
+                            Box {
                                 ApprovalCard(
                                     approval = approval,
                                     onApprove = viewModel::approve,
@@ -1287,7 +1290,7 @@ fun ChatScreen(
 
                     state.pendingEnvironment?.let { request ->
                         indexedItem(key = "env-install") {
-                            Box(Modifier.animateItem(fadeInSpec = fastEffectsSpec(), placementSpec = null, fadeOutSpec = null)) {
+                            Box {
                                 EnvironmentInstallCard(
                                     request = request,
                                     envState = state.envState,
@@ -1300,7 +1303,7 @@ fun ChatScreen(
 
                     state.pendingQuestion?.let { question ->
                         indexedItem(key = "question") {
-                            Box(Modifier.animateItem(fadeInSpec = fastEffectsSpec(), placementSpec = null, fadeOutSpec = null)) {
+                            Box {
                                 QuestionCard(
                                     question = question,
                                     onAnswer = viewModel::answerQuestion,
@@ -1311,7 +1314,7 @@ fun ChatScreen(
 
                     state.pendingPlan?.let { plan ->
                         indexedItem(key = "plan") {
-                            Box(Modifier.animateItem(fadeInSpec = fastEffectsSpec(), placementSpec = null, fadeOutSpec = null)) {
+                            Box {
                                 PlanApprovalCard(
                                     plan = plan,
                                     onApprove = viewModel::executePendingPlan,
