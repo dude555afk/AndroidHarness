@@ -877,12 +877,13 @@ class AgentEngine(
             isForgeMutation -> {
                 // Runtime extensions can add network tools/UI and persist beyond
                 // this chat, so install/remove always needs a human approval.
-                val request = ApprovalRequest(
-                    call,
-                    tool.description,
-                    "Forge wants to ${if (call.name == "forge_install") "install or update a runtime plugin" else "remove a runtime plugin"}. Review the requested extension before allowing it.",
-                    grantKey,
-                )
+                val preview = if (call.name == "forge_install") {
+                    computeForgeInstallPreview(call)
+                        ?: "Forge wants to install or update a runtime plugin. Review the requested extension before allowing it."
+                } else {
+                    "Forge wants to remove a runtime plugin and its stored credentials."
+                }
+                val request = ApprovalRequest(call, tool.description, preview, grantKey)
                 emitEvent(AgentEvent.ApprovalNeeded(request))
                 request.response.await()
             }
@@ -1109,6 +1110,36 @@ class AgentEngine(
             null
         }
     }
+
+    /** Human-readable Forge install preview: identity, capabilities and network targets. */
+    private fun computeForgeInstallPreview(call: ToolCallData): String? = runCatching {
+        val outer = json.parseToJsonElement(call.argumentsJson).jsonObject
+        val raw = (outer["manifest_json"] as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull
+            ?: return@runCatching null
+        val manifest = json.parseToJsonElement(raw).jsonObject
+        val id = (manifest["id"] as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull ?: "unknown"
+        val name = (manifest["name"] as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull ?: id
+        val permissions = (manifest["permissions"] as? kotlinx.serialization.json.JsonArray)
+            .orEmpty()
+            .mapNotNull { (it as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull }
+        val targets = (manifest["tools"] as? kotlinx.serialization.json.JsonArray)
+            .orEmpty()
+            .mapNotNull { item ->
+                val obj = item as? kotlinx.serialization.json.JsonObject ?: return@mapNotNull null
+                (obj["url"] as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull
+            }
+            .distinct()
+            .take(8)
+        buildString {
+            append("Install runtime plugin: ").append(name).append(" (").append(id).append(")\n")
+            append("Permissions: ").append(permissions.ifEmpty { listOf("none declared") }.joinToString(", "))
+            if (targets.isNotEmpty()) {
+                append("\nNetwork targets:\n")
+                targets.forEach { append("  • ").append(it.take(180)).append('\n') }
+            }
+            append("\nForge plugins cannot access files, shell, Shizuku or package installation in this runtime.")
+        }.trim()
+    }.getOrNull()
 
     /** Formats a preview for package installation approval warnings. */
     private fun computePkgInstallPreview(call: ToolCallData): String? = runCatching {
