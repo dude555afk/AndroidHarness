@@ -24,10 +24,6 @@ on:
 permissions:
   contents: write
 
-concurrency:
-  group: nightly-build
-  cancel-in-progress: true
-
 jobs:
   build:
     runs-on: ubuntu-latest
