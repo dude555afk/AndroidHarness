@@ -1014,8 +1014,11 @@ fun ChatScreen(
                         if (message.role == Role.ASSISTANT && message.toolCallId != null) continue
                         val messageKey = message.id
                             ?: message.toolCallId?.let { "tool-$it" }
-                            ?: message.turnId?.let { "$it-${message.role.name}-${message.createdAt}" }
-                            ?: "${message.role.name}-${message.createdAt}"
+                            ?: message.toolCalls.firstOrNull()?.id?.let { "call-$it-${message.role.name}" }
+                            ?: message.turnId?.let {
+                                "$it-${message.role.name}-${message.createdAt}-${message.text.hashCode()}-${message.thinking.hashCode()}"
+                            }
+                            ?: "${message.role.name}-${message.createdAt}-${message.text.hashCode()}-${message.thinking.hashCode()}"
                         if (searchMessageId != null && message.id == searchMessageId) {
                             indexedItem(key = "search-target") {
                                 Surface(
@@ -1081,157 +1084,165 @@ fun ChatScreen(
                                 val activity = turnActivities[message.turnId].orEmpty()
                                 val isSearchTurn = searchMessageId != null && message.turnId == searchTurnId
                                 val hasFinishedActivity = !isTurnRunning && !isSearchTurn && activity.isNotEmpty()
-                                if (hasFinishedActivity && !isTurnFinal) continue
-                                if (hasFinishedActivity) {
-                                    val userAt = turnFirstUserTimes[message.turnId]
-                                    val workedLabel = if (userAt != null) {
-                                        formatDuration((message.createdAt - userAt).coerceAtLeast(0))
-                                    } else ""
-                                    indexedItem(key = "turn-${message.turnId}-activity") {
-                                        TurnActivityCard(
-                                            calls = activity.flatMap { it.toolCalls },
-                                            results = toolResults,
-                                            fileEdits = state.fileEditsByTurn[message.turnId].orEmpty(),
-                                            workedLabel = workedLabel,
-                                            activity = activity,
-                                            onOpenFile = onOpenFile,
-                                        )
-                                    }
-                                }
-                                if (!hasFinishedActivity && message.thinking.isNotBlank()) {
-                                    indexedItem(key = "message-$messageKey-thinking") {
-                                        Box { ThinkingBlock(message.thinking, durationMs = message.thinkingMs) }
-                                    }
-                                }
-                                if (message.text.isNotBlank()) {
-                                    indexedItem(key = "message-$messageKey-text") {
-                                        Box {
-                                            Column {
-                                                val used = skillUsedByMessage[message.id].orEmpty()
-                                                if (used.isNotEmpty()) {
-                                                    Row(
-                                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                                        modifier = Modifier.padding(bottom = 4.dp),
-                                                    ) {
-                                                        used.forEach { SkillUsedBadge(it) }
-                                                    }
-                                                }
-                                                AssistantText(
-                                                    message.text,
-                                                    showPreviewChip = isTurnFinal && !isTurnRunning,
-                                                    onOpenUrl = { url ->
-                                                        webPreviewUrl = url
-                                                        showWebPreview = true
-                                                    },
+
+                                // One stable LazyColumn child per committed assistant message.
+                                // Tool/thinking/text rows used to be separate lazy children, then
+                                // several were removed in the same frame when a turn condensed
+                                // into TurnActivityCard. That structural churn is what triggered
+                                // Compose LayoutNode.onChildRemoved crashes on some devices.
+                                indexedItem(key = "message-$messageKey-assistant") {
+                                    Box {
+                                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                            var renderedAnything = false
+
+                                            if (hasFinishedActivity && isTurnFinal) {
+                                                val userAt = turnFirstUserTimes[message.turnId]
+                                                val workedLabel = if (userAt != null) {
+                                                    formatDuration((message.createdAt - userAt).coerceAtLeast(0))
+                                                } else ""
+                                                TurnActivityCard(
+                                                    calls = activity.flatMap { it.toolCalls },
+                                                    results = toolResults,
+                                                    fileEdits = state.fileEditsByTurn[message.turnId].orEmpty(),
+                                                    workedLabel = workedLabel,
+                                                    activity = activity,
+                                                    onOpenFile = onOpenFile,
                                                 )
-                                                val edits = state.fileEditsByTurn[message.turnId].orEmpty()
-                                                if (isTurnFinal && !isTurnRunning && edits.isNotEmpty()) {
-                                                    FileEditsCard(
-                                                        edits = edits,
-                                                        onOpenFile = onOpenFile,
-                                                        onReviewFile = { path -> message.turnId?.let { diffFile = it to path } },
-                                                        modifier = Modifier.padding(top = 8.dp),
-                                                    )
-                                                }
-                                                Row(
-                                                    modifier = Modifier.fillMaxWidth(),
-                                                    verticalAlignment = Alignment.CenterVertically,
-                                                ) {
-                                                    CopyIconButton(message.text)
-                                                    ForkIconButton(
-                                                        onClick = {
-                                                            viewModel.requestFork(message) { newSid ->
-                                                                onNavigateToSession(newSid)
-                                                            }
+                                                renderedAnything = true
+                                            }
+
+                                            if (!hasFinishedActivity && message.thinking.isNotBlank()) {
+                                                ThinkingBlock(message.thinking, durationMs = message.thinkingMs)
+                                                renderedAnything = true
+                                            }
+
+                                            if (message.text.isNotBlank()) {
+                                                Column {
+                                                    val used = skillUsedByMessage[message.id].orEmpty()
+                                                    if (used.isNotEmpty()) {
+                                                        Row(
+                                                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                                            modifier = Modifier.padding(bottom = 4.dp),
+                                                        ) {
+                                                            used.forEach { SkillUsedBadge(it) }
+                                                        }
+                                                    }
+                                                    AssistantText(
+                                                        message.text,
+                                                        showPreviewChip = isTurnFinal && !isTurnRunning,
+                                                        onOpenUrl = { url ->
+                                                            webPreviewUrl = url
+                                                            showWebPreview = true
                                                         },
                                                     )
-                                                    if (canRewind) {
-                                                        UndoIconButton(
-                                                            onClick = { message.turnId?.let { confirmRewindTurn = it } },
+                                                    val edits = state.fileEditsByTurn[message.turnId].orEmpty()
+                                                    if (isTurnFinal && !isTurnRunning && edits.isNotEmpty()) {
+                                                        FileEditsCard(
+                                                            edits = edits,
+                                                            onOpenFile = onOpenFile,
+                                                            onReviewFile = { path -> message.turnId?.let { diffFile = it to path } },
+                                                            modifier = Modifier.padding(top = 8.dp),
                                                         )
                                                     }
-                                                    if (isTurnFinal && !isTurnRunning) {
-                                                        val duration = turnFirstUserTimes[message.turnId]?.let {
-                                                            message.createdAt - it
-                                                        }
-                                                        val timestamp = message.createdAt.takeIf { it > 0 }?.let {
-                                                            android.text.format.DateFormat.getTimeFormat(toastContext)
-                                                                .format(java.util.Date(it))
-                                                        }
-                                                        val label = listOfNotNull(
-                                                            turnPerformanceLabel(duration, turnSpeeds[message.turnId]).takeIf { it.isNotBlank() },
-                                                            timestamp,
-                                                        ).joinToString(" · ")
-                                                        if (label.isNotBlank()) {
-                                                            Spacer(Modifier.weight(1f))
-                                                            Text(
-                                                                label,
-                                                                style = MaterialTheme.typography.labelSmall,
-                                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    Row(
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                    ) {
+                                                        CopyIconButton(message.text)
+                                                        ForkIconButton(
+                                                            onClick = {
+                                                                viewModel.requestFork(message) { newSid ->
+                                                                    onNavigateToSession(newSid)
+                                                                }
+                                                            },
+                                                        )
+                                                        if (canRewind) {
+                                                            UndoIconButton(
+                                                                onClick = { message.turnId?.let { confirmRewindTurn = it } },
                                                             )
                                                         }
+                                                        if (isTurnFinal && !isTurnRunning) {
+                                                            val duration = turnFirstUserTimes[message.turnId]?.let {
+                                                                message.createdAt - it
+                                                            }
+                                                            val timestamp = message.createdAt.takeIf { it > 0 }?.let {
+                                                                android.text.format.DateFormat.getTimeFormat(toastContext)
+                                                                    .format(java.util.Date(it))
+                                                            }
+                                                            val label = listOfNotNull(
+                                                                turnPerformanceLabel(duration, turnSpeeds[message.turnId]).takeIf { it.isNotBlank() },
+                                                                timestamp,
+                                                            ).joinToString(" · ")
+                                                            if (label.isNotBlank()) {
+                                                                Spacer(Modifier.weight(1f))
+                                                                Text(
+                                                                    label,
+                                                                    style = MaterialTheme.typography.labelSmall,
+                                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                                )
+                                                            }
+                                                        }
+                                                    }
+                                                    if (isTurnFinal && !isTurnRunning) {
+                                                        CacheUsageFooter(state.turnCacheUsage[message.turnId].orEmpty())
                                                     }
                                                 }
-                                                if (isTurnFinal && !isTurnRunning) {
-                                                    CacheUsageFooter(state.turnCacheUsage[message.turnId].orEmpty())
-                                                }
+                                                renderedAnything = true
                                             }
-                                        }
-                                    }
-                                }
-                                if (isTurnRunning || isSearchTurn) {
-                                    val taskCalls = message.toolCalls.filter { it.name == "task" }
-                                    val otherCalls = message.toolCalls.filter { it.name != "task" }
-                                    if (taskCalls.size >= 2) {
-                                        indexedItem(key = "message-$messageKey-subagents") {
-                                            Box {
-                                                SubagentPagerCard(
-                                                    calls = taskCalls,
-                                                    results = toolResults,
-                                                    runningIds = runningIds,
-                                                    subagentSteps = state.subagentSteps,
-                                                    onOpen = onOpenSubagent,
-                                                )
-                                            }
-                                        }
-                                    } else if (taskCalls.size == 1) {
-                                        val call = taskCalls[0]
-                                        indexedItem(key = call.id) {
-                                            Box {
-                                                SubagentCard(
-                                                    call = call,
-                                                    steps = state.subagentSteps[call.id].orEmpty(),
-                                                    result = toolResults[call.id],
-                                                    running = call.id in runningIds,
-                                                    onOpenFile = onOpenFile,
-                                                    onOpenFull = { onOpenSubagent(call.id) },
-                                                )
-                                            }
-                                        }
-                                    }
-                                    if (otherCalls.size >= 3) {
-                                        indexedItem(key = "message-$messageKey-tools") {
-                                            Box {
-                                                ToolGroupCard(
-                                                    calls = otherCalls,
-                                                    results = toolResults,
-                                                    runningIds = runningIds,
-                                                    onOpenFile = onOpenFile,
-                                                    subagentSteps = state.subagentSteps,
-                                                )
-                                            }
-                                        }
-                                    } else {
-                                        for (call in otherCalls) {
-                                            indexedItem(key = call.id) {
-                                                Box {
-                                                    ToolCallCard(
+
+                                            if (isTurnRunning || isSearchTurn) {
+                                                val taskCalls = message.toolCalls.filter { it.name == "task" }
+                                                val otherCalls = message.toolCalls.filter { it.name != "task" }
+
+                                                if (taskCalls.size >= 2) {
+                                                    SubagentPagerCard(
+                                                        calls = taskCalls,
+                                                        results = toolResults,
+                                                        runningIds = runningIds,
+                                                        subagentSteps = state.subagentSteps,
+                                                        onOpen = onOpenSubagent,
+                                                    )
+                                                    renderedAnything = true
+                                                } else if (taskCalls.size == 1) {
+                                                    val call = taskCalls[0]
+                                                    SubagentCard(
                                                         call = call,
+                                                        steps = state.subagentSteps[call.id].orEmpty(),
                                                         result = toolResults[call.id],
                                                         running = call.id in runningIds,
                                                         onOpenFile = onOpenFile,
+                                                        onOpenFull = { onOpenSubagent(call.id) },
                                                     )
+                                                    renderedAnything = true
                                                 }
+
+                                                if (otherCalls.size >= 3) {
+                                                    ToolGroupCard(
+                                                        calls = otherCalls,
+                                                        results = toolResults,
+                                                        runningIds = runningIds,
+                                                        onOpenFile = onOpenFile,
+                                                        subagentSteps = state.subagentSteps,
+                                                    )
+                                                    renderedAnything = true
+                                                } else {
+                                                    for (call in otherCalls) {
+                                                        ToolCallCard(
+                                                            call = call,
+                                                            result = toolResults[call.id],
+                                                            running = call.id in runningIds,
+                                                            onOpenFile = onOpenFile,
+                                                        )
+                                                        renderedAnything = true
+                                                    }
+                                                }
+                                            }
+
+                                            // Finished non-final assistant rows intentionally stay
+                                            // mounted at zero height instead of being removed from
+                                            // LazyColumn during the same measure pass.
+                                            if (!renderedAnything) {
+                                                Spacer(Modifier.height(0.dp))
                                             }
                                         }
                                     }
