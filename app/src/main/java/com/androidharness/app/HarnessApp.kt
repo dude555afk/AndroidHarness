@@ -78,7 +78,7 @@ class AppContainer(val appContext: Context) {
     val todoStore = TodoStore()
     val repoMap = com.androidharness.app.repomap.RepoMapCache()
     private val fetchClient = OkHttpClient()
-    val forge = com.androidharness.app.forge.ForgeManager(appContext, keys, fetchClient)
+    val forge by lazy(LazyThreadSafetyMode.SYNCHRONIZED) { com.androidharness.app.forge.ForgeManager(appContext, keys, fetchClient) }
     val linuxEnv =
         com.androidharness.app.data.env.LinuxEnvironmentManager(appContext) { keys.githubToken() }
     val shizuku = com.androidharness.app.data.env.ShizukuManager(appContext)
@@ -131,7 +131,7 @@ class AppContainer(val appContext: Context) {
         imageStore = images,
         browserController = browser,
         searchApi = { searchApiConfig },
-    ).withExtra(forge.managementTools())
+    )
     val mcp = com.androidharness.app.tools.mcp.McpManager(appContext, linuxEnv, keys, codeGraph)
     val engine = AgentEngine(
         providerFactory = { config -> ProviderFactory.create(config) },
@@ -155,7 +155,6 @@ class AppContainer(val appContext: Context) {
         settings = settings,
         todoStore = todoStore,
         mcp = mcp,
-        forge = forge,
         repoMap = repoMap,
     )
     val automation = com.androidharness.app.automation.AutomationManager(this)
