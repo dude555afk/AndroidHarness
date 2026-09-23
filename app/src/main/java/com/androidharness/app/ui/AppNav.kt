@@ -154,6 +154,7 @@ fun AppNav(container: AppContainer) {
         .map { it as AppSettings? }
         .collectAsStateWithLifecycle(initialValue = null)
     val providers by container.providers.providers.collectAsStateWithLifecycle(initialValue = emptyList())
+    val forgePlugins by container.forge.plugins.collectAsStateWithLifecycle(initialValue = emptyList())
     val currentWorkspace by container.workspace.currentProject.collectAsStateWithLifecycle(initialValue = null)
     val activeFs by container.workspace.current.collectAsStateWithLifecycle(initialValue = null)
     val allWorkspaces by container.workspace.projects.collectAsStateWithLifecycle(initialValue = emptyList())
@@ -263,6 +264,13 @@ fun AppNav(container: AppContainer) {
     // Run-result notifications deep-link into the session's chat.
     androidx.compose.runtime.LaunchedEffect(Unit) {
         container.pendingSessionId.collect { sid -> nav.navigate("chat/$sid") }
+    }
+
+    // Runtime plugins may ask the host to reveal their generated UI.
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        container.forge.openRequests.collect { pluginId ->
+            nav.navigate("forge/${encode(pluginId)}")
+        }
     }
 
     fun openChat(sessionId: String?, messageId: String? = null) {
@@ -645,6 +653,16 @@ fun AppNav(container: AppContainer) {
                         },
                     )
                     DrawerRow(
+                        icon = { Icon(Icons.Outlined.AutoMode, contentDescription = null) },
+                        title = "Forge",
+                        subtitle = if (forgePlugins.isEmpty()) "Runtime extensions" else "${forgePlugins.size} runtime extensions",
+                        selected = currentRoute?.startsWith("forge") == true,
+                        onClick = {
+                            scope.launch { drawerState.close() }
+                            nav.navigate("forge")
+                        },
+                    )
+                    DrawerRow(
                         icon = { Icon(Icons.Outlined.Settings, contentDescription = null) },
                         title = "Settings",
                         subtitle = "Agent, workspace and appearance",
@@ -823,6 +841,25 @@ fun AppNav(container: AppContainer) {
                         scope.launch { container.settings.setLastActiveSessionId(null) }
                         nav.navigate("chat")
                     },
+                )
+            }
+            composable("forge") {
+                com.androidharness.app.ui.forge.ForgeScreen(
+                    container = container,
+                    pluginId = null,
+                    onBack = { nav.popBackStack() },
+                    onOpenPlugin = { id -> nav.navigate("forge/${encode(id)}") },
+                )
+            }
+            composable(
+                "forge/{pluginId}",
+                arguments = listOf(navArgument("pluginId") { type = NavType.StringType }),
+            ) { entry ->
+                com.androidharness.app.ui.forge.ForgeScreen(
+                    container = container,
+                    pluginId = entry.arguments?.getString("pluginId"),
+                    onBack = { nav.popBackStack() },
+                    onOpenPlugin = { id -> nav.navigate("forge/${encode(id)}") },
                 )
             }
             composable("settings") {
