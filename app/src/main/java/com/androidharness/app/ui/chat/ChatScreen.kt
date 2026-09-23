@@ -997,13 +997,15 @@ fun ChatScreen(
                                 nextItemIndex++
                                 item(key = key, content = content)
                             }
-                            if (state.messages.isEmpty() && state.streamingText == null) {
-                                indexedItem(key = "empty-state") {
+                            indexedItem(key = "empty-state-slot") {
+                                if (state.messages.isEmpty() && state.streamingText == null) {
                                     EmptyState(
                                         hasProvider = state.activeProvider != null,
                                         onSuggestion = { viewModel.send(it) },
                                         onAddProvider = { activeProviderManagerTarget = ModelSelectionTarget.ACTIVE },
                                     )
+                                } else {
+                                    Spacer(Modifier.height(0.dp))
                                 }
                             }
 
@@ -1261,76 +1263,74 @@ fun ChatScreen(
                         }
                     }
 
-                    // Live streaming items are rendered only while not yet in the committed list.
+                    // Keep live output in one permanent lazy slot. The slot stays mounted
+                    // while stream state changes and during the live→committed handoff.
                     val streamAlreadyCommitted = state.streamingMessageId != null &&
                         state.messages.any { it.id == state.streamingMessageId }
-                    if (!streamAlreadyCommitted) {
-                        val streamKey = state.streamingMessageId ?: state.currentTurnId ?: "idle"
-                        state.streamingThinking?.let { thinking ->
-                            if (thinking.isNotBlank()) {
-                                indexedItem(key = "streaming-$streamKey-thinking") {
+                    indexedItem(key = "live-stream-slot") {
+                        if (!streamAlreadyCommitted &&
+                            (!state.streamingThinking.isNullOrBlank() || !state.streamingText.isNullOrBlank())
+                        ) {
+                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                state.streamingThinking?.takeIf { it.isNotBlank() }?.let { thinking ->
                                     ThinkingBlock(thinking, live = true)
                                 }
+                                state.streamingText?.takeIf { it.isNotBlank() }?.let { streaming ->
+                                    AssistantText(
+                                        streaming,
+                                        streaming = !state.streamingCommitted,
+                                        onOpenUrl = { url ->
+                                            webPreviewUrl = url
+                                            showWebPreview = true
+                                        },
+                                    )
+                                }
                             }
-                        }
-                        state.streamingText?.let { streaming ->
-                            indexedItem(key = "streaming-$streamKey-text") {
-                                AssistantText(
-                                    streaming,
-                                    streaming = !state.streamingCommitted,
-                                    onOpenUrl = { url ->
-                                        webPreviewUrl = url
-                                        showWebPreview = true
-                                    },
-                                )
-                            }
+                        } else {
+                            Spacer(Modifier.height(0.dp))
                         }
                     }
 
-                    state.pendingApproval?.let { approval ->
-                        indexedItem(key = "approval") {
-                            Box {
+                    // Approval/question/environment/plan cards share one permanent
+                    // lazy slot so resolving an interaction does not remove a
+                    // LayoutNode from LazyColumn during an active measure pass.
+                    indexedItem(key = "interaction-slot") {
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            var renderedInteraction = false
+                            state.pendingApproval?.let { approval ->
                                 ApprovalCard(
                                     approval = approval,
                                     onApprove = viewModel::approve,
                                     onDeny = viewModel::deny,
                                 )
+                                renderedInteraction = true
                             }
-                        }
-                    }
-
-                    state.pendingEnvironment?.let { request ->
-                        indexedItem(key = "env-install") {
-                            Box {
+                            state.pendingEnvironment?.let { request ->
                                 EnvironmentInstallCard(
                                     request = request,
                                     envState = state.envState,
                                     onInstall = viewModel::approveEnvironmentInstall,
                                     onSkip = viewModel::denyEnvironmentInstall,
                                 )
+                                renderedInteraction = true
                             }
-                        }
-                    }
-
-                    state.pendingQuestion?.let { question ->
-                        indexedItem(key = "question") {
-                            Box {
+                            state.pendingQuestion?.let { question ->
                                 QuestionCard(
                                     question = question,
                                     onAnswer = viewModel::answerQuestion,
                                 )
+                                renderedInteraction = true
                             }
-                        }
-                    }
-
-                    state.pendingPlan?.let { plan ->
-                        indexedItem(key = "plan") {
-                            Box {
+                            state.pendingPlan?.let { plan ->
                                 PlanApprovalCard(
                                     plan = plan,
                                     onApprove = viewModel::executePendingPlan,
                                     onDiscard = viewModel::discardPendingPlan,
                                 )
+                                renderedInteraction = true
+                            }
+                            if (!renderedInteraction) {
+                                Spacer(Modifier.height(0.dp))
                             }
                         }
                     }
